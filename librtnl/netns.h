@@ -1,0 +1,98 @@
+
+#ifndef NETNS_H_
+#define NETNS_H_
+
+#include <vlib/vlib.h>
+
+#include <sys/socket.h>
+#include <linux/rtnetlink.h>
+#include <linux/netlink.h>
+#include <linux/if.h>
+
+#include "rtnl.h"
+
+typedef struct {
+  struct ifinfomsg ifi;
+  u8 hwaddr[IFHWADDRLEN];
+  u8 broadcast[IFHWADDRLEN];
+  u8 ifname[IFNAMSIZ];
+  u32 mtu;
+  u32 master;
+  u8 qdisc[IFNAMSIZ];
+  struct rtnl_link_stats stats; //This struct is big and only comes as a response to a request
+  f64 last_updated;
+} ns_link_t;
+
+typedef struct {
+  struct rtmsg rtm;
+  u8 dst[16];
+  u8 src[16];
+  u8 prefsrc[16];
+  u32 iif;
+  u32 oif;
+  u32 table;
+  u8 gateway[16];
+  u32 priority;
+  struct rta_cacheinfo cacheinfo;
+  f64 last_updated;
+} ns_route_t;
+
+typedef struct {
+  struct ifaddrmsg ifaddr;
+  u8 addr[16];
+  u8 local[16];
+  u8 label[IFNAMSIZ];
+  u8 broadcast[16];
+  u8 anycast[16];
+  struct ifa_cacheinfo cacheinfo;
+  f64 last_updated;
+} ns_addr_t;
+
+typedef struct {
+  struct ndmsg nd;
+  u8 dst[16];
+  u8 lladdr[IFHWADDRLEN];
+  u32 probes;
+  struct nda_cacheinfo cacheinfo;
+  f64 last_updated;
+} ns_neigh_t;
+
+typedef struct {
+  char name[RTNL_NETNS_NAMELEN + 1];
+  ns_link_t  *links;
+  ns_route_t *routes;
+  ns_addr_t  *addresses;
+  ns_neigh_t *neighbors;
+} netns_t;
+
+
+typedef enum {
+  NETNS_TYPE_LINK,
+  NETNS_TYPE_ROUTE,
+  NETNS_TYPE_ADDR,
+  NETNS_TYPE_NEIGH,
+} netns_type_t;
+
+//Flags used in notification functions call
+#define NETNS_F_ADD    0x01
+#define NETNS_F_DEL    0x02
+
+typedef struct {
+  void (*notify)(void *obj, netns_type_t type, u32 flags, uword opaque);
+  uword opaque;
+} netns_sub_t;
+
+u32 netns_open(char *name, netns_sub_t *sub);
+netns_t *netns_getns(u32 handle);
+void netns_close(u32 handle);
+
+/*
+ * netns struct format functions.
+ * Taking the struct as single argument.
+ */
+u8 *format_ns_neigh(u8 *s, va_list *args);
+u8 *format_ns_addr(u8 *s, va_list *args);
+u8 *format_ns_route(u8 *s, va_list *args);
+u8 *format_ns_link(u8 *s, va_list *args);
+
+#endif
