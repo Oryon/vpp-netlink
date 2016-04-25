@@ -19,11 +19,13 @@ lib_LTLIBRARIES = librtnl.la
 
 librtnl_la_SOURCES =     \
   librtnl/netns.c        \
-  librtnl/rtnl.c
+  librtnl/rtnl.c         \
+  librtnl/mapper.c
 
 nobase_include_HEADERS =	\
   librtnl/netns.h           \
-  librtnl/rtnl.h
+  librtnl/rtnl.h            \
+  librtnl/mapper.h
 
 
 lib_LTLIBRARIES += testrtnl_plugin.la

@@ -1,6 +1,8 @@
 #include <librtnl/netns.h>
 
 #include <vnet/plugin/plugin.h>
+#include <librtnl/mapper.h>
+#include <vnet/ip/ip.h>
 
 u32 handles[10];
 
@@ -79,6 +81,99 @@ VLIB_CLI_COMMAND (rtnl_disable_command, static) = {
     .path = "test netns disable",
     .short_help = "test rtnl disable <index>",
     .function = test_disable_command_fn,
+};
+
+u32 mapper_indexes[10];
+
+static clib_error_t *
+mapper_ns_add_command_fn (vlib_main_t * vm,
+                         unformat_input_t * input,
+                         vlib_cli_command_t * cmd)
+{
+  u32 index;
+  char *nsname;
+  u32 table_id;
+  if (!unformat(input, "%d", &index))
+    return clib_error_return(0, "invalid index `%U'",
+                             format_unformat_error, input);
+  if (!unformat(input, "%s", &nsname))
+    return clib_error_return(0, "invalid nsname `%U'",
+                             format_unformat_error, input);
+  if (!unformat(input, "%d", &table_id))
+      return clib_error_return(0, "invalid fib index `%U'",
+                               format_unformat_error, input);
+
+  if (!strcmp(nsname, "default"))
+    nsname[0] = 0;
+
+  u32 fib4 = find_ip4_fib_by_table_index_or_id(&ip4_main, table_id, 0) - ip4_main.fibs;
+  u32 fib6 = find_ip6_fib_by_table_index_or_id(&ip6_main, table_id, 0) - ip6_main.fibs;
+
+  if (mapper_add_ns(nsname, fib4, fib6, &mapper_indexes[index]))
+    return clib_error_return(0, "Could not add ns %s", nsname);
+  return 0;
+}
+
+VLIB_CLI_COMMAND (mapper_ns_add_command, static) = {
+    .path = "test mapper ns add",
+    .short_help = "test mapper ns add <index> <nsname> <table-id>",
+    .function = mapper_ns_add_command_fn,
+};
+
+static clib_error_t *
+mapper_ns_del_command_fn (vlib_main_t * vm,
+                         unformat_input_t * input,
+                         vlib_cli_command_t * cmd)
+{
+  u32 index;
+  if (!unformat(input, "%d", &index))
+    return clib_error_return(0, "invalid index `%U'",
+                             format_unformat_error, input);
+
+  if (mapper_del_ns(mapper_indexes[index]))
+    return clib_error_return(0, "Could not del ns %d", index);
+  return 0;
+}
+
+VLIB_CLI_COMMAND (mapper_ns_del_command, static) = {
+    .path = "test mapper ns delete",
+    .short_help = "test mapper ns delete <index>",
+    .function = mapper_ns_del_command_fn,
+};
+
+static clib_error_t *
+mapper_iface_command_fn (vlib_main_t * vm,
+                         unformat_input_t * input,
+                         vlib_cli_command_t * cmd)
+{
+  u32 nsindex;
+  u32 ifindex;
+  u32 sw_if_index;
+  int del = 0;
+  if (!unformat(input, "%d", &nsindex))
+    return clib_error_return(0, "invalid nsindex `%U'",
+                             format_unformat_error, input);
+  if (!unformat(input, "%d", &ifindex))
+    return clib_error_return(0, "invalid ifindex `%U'",
+                             format_unformat_error, input);
+  if (!unformat(input, "%d", &sw_if_index))
+    return clib_error_return(0, "invalid sw_if_index `%U'",
+                             format_unformat_error, input);
+  if (unformat(input, "del"))
+    del = 1;
+
+  clib_warning("mapper_add_del %d %d %d %d", mapper_indexes[nsindex], ifindex, sw_if_index, del);
+
+  if (mapper_add_del(mapper_indexes[nsindex], ifindex, sw_if_index, del))
+    return clib_error_return(0, "Could not add iface");
+  return 0;
+}
+
+
+VLIB_CLI_COMMAND (mapper_iface_command, static) = {
+    .path = "test mapper iface",
+    .short_help = "test mapper iface <nsindex> <linux-ifindex> <sw_if_index> [del]",
+    .function = mapper_iface_command_fn,
 };
 
 clib_error_t *

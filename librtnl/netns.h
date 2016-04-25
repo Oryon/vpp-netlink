@@ -1,3 +1,17 @@
+/*
+ * Copyright (c) 2013 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #ifndef NETNS_H_
 #define NETNS_H_
@@ -82,9 +96,32 @@ typedef struct {
   uword opaque;
 } netns_sub_t;
 
+/*
+ * Subscribe for events related to the given namespace.
+ * When another subscriber already uses the namespace,
+ * this call will not trigger updates for already
+ * existing routes (This is to protect against
+ * synch. Vs asynch. issues).
+ */
 u32 netns_open(char *name, netns_sub_t *sub);
+
+/*
+ * Retrieves the namespace structure associated with a
+ * given namespace handler.
+ */
 netns_t *netns_getns(u32 handle);
+
+/*
+ * Terminates a subscriber session.
+ */
 void netns_close(u32 handle);
+
+/*
+ * Calls the callback associated with the handle
+ * for all existing objects with the flags
+ * set to (del?NETNS_F_DEL:NETNS_F_ADD).
+ */
+void netns_callme(u32 handle, char del);
 
 /*
  * netns struct format functions.

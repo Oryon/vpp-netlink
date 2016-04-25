@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2013 Cisco and/or its affiliates.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <librtnl/netns.h>
 
 #include <vnet/ip/format.h>
@@ -82,7 +97,7 @@ u8 *format_ns_route (u8 *s, va_list *args)
     s = format(s, " via %U", format_ip, r->gateway);
   if (r->iif)
     s = format(s, " iif %d", r->iif);
-  if (r->iif)
+  if (r->oif)
     s = format(s, " oif %d", r->oif);
   if (is_nonzero(r->prefsrc))
     s = format(s, " src %U", format_ip, r->prefsrc);
@@ -556,6 +571,12 @@ ns_rcv_neigh(netns_p *ns, struct nlmsghdr *hdr)
   return 0;
 }
 
+#define ns_object_foreach    \
+  _(neighbors, NETNS_TYPE_NEIGH) \
+  _(routes, NETNS_TYPE_ROUTE)    \
+  _(addresses, NETNS_TYPE_ADDR)  \
+  _(links, NETNS_TYPE_LINK)
+
 static void
 ns_recv_error(rtnl_error_t err, uword o)
 {
@@ -563,12 +584,6 @@ ns_recv_error(rtnl_error_t err, uword o)
   netns_p *ns = (netns_p *)o;
   u32 *indexes = 0;
   u32 *i = 0;
-
-#define ns_recv_error_foreach    \
-  _(neighbors, NETNS_TYPE_NEIGH) \
-  _(routes, NETNS_TYPE_ROUTE)    \
-  _(addresses, NETNS_TYPE_ADDR)  \
-  _(links, NETNS_TYPE_LINK)
 
 #define _(pool, type) \
   pool_foreach_index(*i, ns->netns.pool, {                   \
@@ -580,7 +595,7 @@ ns_recv_error(rtnl_error_t err, uword o)
   }                                                          \
   vec_reset_length(indexes);
 
-  ns_recv_error_foreach
+  ns_object_foreach
 
 #undef _
   vec_free(indexes);
@@ -695,6 +710,26 @@ void netns_close(u32 handle)
   ns->subscriber_count--;
   if (!ns->subscriber_count)
     netns_destroy(ns);
+}
+
+void netns_callme(u32 handle, char del)
+{
+  netns_main_t *nm = &netns_main;
+  netns_handle_t *h = pool_elt_at_index(nm->handles, handle);
+  netns_p *ns = pool_elt_at_index(nm->netnss, h->netns_index);
+  u32 i = 0;
+  if (!h->notify)
+    return;
+
+#define _(pool, type) \
+  pool_foreach_index(i, ns->netns.pool, {                   \
+      h->notify(&ns->netns.pool[i], type,                   \
+      del?NETNS_F_DEL:NETNS_F_ADD, h->opaque);              \
+  });
+
+  ns_object_foreach
+#undef _
+
 }
 
 clib_error_t *
