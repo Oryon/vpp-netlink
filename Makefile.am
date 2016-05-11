@@ -32,7 +32,6 @@ lib_LTLIBRARIES += testrtnl_plugin.la
 
 testrtnl_plugin_la_SOURCES = test/test.c
 testrtnl_plugin_la_LDFLAGS = -module
-testrtnl_plugin_la_LIBADD = -lrtnl
 
 
 if WITH_PLUGIN_TOOLKIT
