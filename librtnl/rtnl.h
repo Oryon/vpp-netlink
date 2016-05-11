@@ -45,4 +45,12 @@ typedef struct rtnl_stream_s {
 u32 rtnl_stream_open(rtnl_stream_t *template);
 void rtnl_stream_close(u32 handle);
 
+/*
+ * Executes a function in a synchronously executed thread in the
+ * given namespace.
+ * Returns 0 on success, and -errno on error.
+ */
+int rtnl_exec_in_namespace(u32 handle, void *(*fn)(void *), void *arg, void **ret);
+int rtnl_exec_in_namespace_by_name(char *nsname, void *(*fn)(void *), void *arg, void **ret);
+
 #endif

@@ -126,6 +126,76 @@ static void rtnl_socket_close(rtnl_ns_t *ns)
   close(ns->rtnl_socket);
 }
 
+struct rtnl_thread_exec {
+  int fd;
+  void *(*fn)(void *);
+  void *arg;
+  void **ret;
+};
+
+static void *rtnl_exec_in_thread_fn(void *p)
+{
+  struct rtnl_thread_exec *ex = (struct rtnl_thread_exec *) p;
+  if (setns(ex->fd, 0))
+    return (void *) ((uword) (-errno));
+
+  *ex->ret = ex->fn(ex->arg);
+  return NULL;
+}
+
+static int rtnl_exec_in_namespace_byfd(int fd, void *(*fn)(void *), void *arg, void **ret)
+{
+  pthread_t thread;
+  void *thread_ret;
+  struct rtnl_thread_exec ex = {
+      .fd = fd,
+      .fn = fn,
+      .arg = arg,
+      .ret = ret
+  };
+  if(pthread_create(&thread, NULL, rtnl_exec_in_thread_fn, &ex))
+    return -errno;
+
+  if(pthread_join(thread, &thread_ret))
+    return -errno;
+
+  if (thread_ret)
+    return (int) ((uword)thread_ret);
+
+  return 0;
+}
+
+int rtnl_exec_in_namespace(u32 stream_index, void *(*fn)(void *), void *arg, void **ret)
+{
+  rtnl_main_t *rm = &rtnl_main;
+  if (pool_is_free_index(rm->streams, stream_index))
+    return -EBADR;
+
+  rtnl_ns_t *ns = pool_elt_at_index(rm->streams, stream_index);
+  return rtnl_exec_in_namespace_byfd(ns->ns_fd, fn, arg, ret);
+}
+
+int rtnl_exec_in_namespace_by_name(char *nsname, void *(*fn)(void *), void *arg, void **ret)
+{
+  u8 *s;
+  int fd;
+  if (nsname && strlen(nsname)) {
+    s = format(0, "/var/run/netns/%s", nsname);
+  } else {
+    s = format(0, "/proc/self/ns/net");
+  }
+
+  if ((fd = open((char *)s, O_RDONLY)) < 0) {
+    vec_free(s);
+    return -errno;
+  }
+
+  int r = rtnl_exec_in_namespace_byfd(fd, fn, arg, ret);
+  vec_free(s);
+  close(fd);
+  return r;
+}
+
 /* this function is run by the second thread */
 static void *rtnl_thread_fn(void *p)
 {
