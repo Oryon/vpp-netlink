@@ -21,9 +21,9 @@
 #include <sys/socket.h>
 #include <linux/rtnetlink.h>
 #include <linux/netlink.h>
-#include <linux/if.h>
+#include <net/if.h>
 
-#include "rtnl.h"
+#include <librtnl/rtnl.h>
 
 typedef struct {
   struct ifinfomsg ifi;
@@ -131,5 +131,8 @@ u8 *format_ns_neigh(u8 *s, va_list *args);
 u8 *format_ns_addr(u8 *s, va_list *args);
 u8 *format_ns_route(u8 *s, va_list *args);
 u8 *format_ns_link(u8 *s, va_list *args);
+
+u8 *format_ns_object(u8 *s, va_list *args);
+u8 *format_ns_flags(u8 *s, va_list *args);
 
 #endif

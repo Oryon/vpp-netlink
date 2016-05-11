@@ -732,6 +732,35 @@ void netns_callme(u32 handle, char del)
 
 }
 
+u8 *format_ns_object(u8 *s, va_list *args)
+{
+  netns_type_t t = va_arg(*args, netns_type_t);
+  void *o = va_arg(*args, void *);
+  switch (t) {
+    case NETNS_TYPE_ADDR:
+      return format(s, "addr %U", format_ns_addr, o);
+    case NETNS_TYPE_ROUTE:
+      return format(s, "route %U", format_ns_route, o);
+    case NETNS_TYPE_LINK:
+      return format(s, "link %U", format_ns_link, o);
+    case NETNS_TYPE_NEIGH:
+      return format(s, "neigh %U", format_ns_neigh, o);
+  }
+  return s;
+}
+
+u8 *format_ns_flags(u8 *s, va_list *args)
+{
+  u32 flags = va_arg(*args, u32);
+  if (flags & NETNS_F_ADD)
+    s = format(s, "add");
+  else if (flags & NETNS_F_DEL)
+    s = format(s, "del");
+  else
+    s = format(s, "mod");
+  return s;
+}
+
 clib_error_t *
 netns_init (vlib_main_t * vm)
 {
